@@ -1,8 +1,9 @@
 # Eye-Tracker
 ### To use:
-## 1. Launch (py -2.7) imageprocess.py
-## 2. Press ESC when your camera is setup
-## 3. Coordinates of your eyes are printed in the log
+# 1. Launch (py -2.7) imageprocess.py
+# 2. Press ESC when your camera is setup
+# 3. Coordinates of your eyes are printed in the console
+
 Eye tracking using OpenCV, Python.
 
 A simple eye tracker using OpenCV library, written in pure python.
