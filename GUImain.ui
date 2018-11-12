@@ -349,6 +349,35 @@
      <string>Start</string>
     </property>
    </widget>
+   <widget class="QCheckBox" name="leftEyeCheckbox">
+    <property name="geometry">
+     <rect>
+      <x>710</x>
+      <y>330</y>
+      <width>70</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Track</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="rightEyeCheckbox">
+    <property name="geometry">
+     <rect>
+      <x>1080</x>
+      <y>330</y>
+      <width>70</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Track</string>
+    </property>
+    <property name="checked">
+     <bool>true</bool>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">

@@ -24,15 +24,12 @@ class Window(QMainWindow):
         self.startButton.clicked.connect(self.start_webcam)
         self.stopButton.clicked.connect(self.stop_webcam)
         self.nextButton.clicked.connect(self.next_page)
-        self.pupilsCheckbox.stateChanged.connect(self.checkbox)
-        self.coordsQueue = deque()
+        self.coordsQueueLeft = deque()
+        self.coordsQueueRight = deque()
 
     def start_webcam(self):
         if not self.cameraRuns:
             self.capture = cv2.VideoCapture(cv2.CAP_DSHOW)  # VideoCapture(0) drops error# -1072875772
-            # self.capture = cv2.VideoCapture("Stare.mp4")
-            # self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            # self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             self.cameraRuns = not self.cameraRuns
             self.timer = QTimer(self)
             self.timer.timeout.connect(self.update_frame)
@@ -57,26 +54,26 @@ class Window(QMainWindow):
             if face_frame is not None:
                 self.leyeframe, self.reyeframe, self.leyeframeG, self.reyeframeG = self.detect_eyes(face_frame, face_frame_gray, lest, rest)
                 if self.leyeframe is not None:
-                    # lIris = self.process_eye1(self.leyeframeG)
-                    # if lIris is not None:
-                    #     self.lx, self.ly, self.lradius = self.stabilize(lIris[0], lIris[1], lIris[2])
-                    #     cv2.circle(self.leyeframe, (self.lx, self.ly), self.lradius, (0, 255, 0), 2)
-                    #     cv2.circle(self.leyeframe, (self.lx, self.ly), 2, (0, 0, 255), 3)
+                    if self.leftEyeCheckbox.isChecked():
+                        lIris = self.process_eye1(self.leyeframeG)
+                        if lIris is not None:
+                            self.lx, self.ly, self.lradius = self.stabilizeLeft(lIris[0], lIris[1], lIris[2])
+                            cv2.circle(self.leyeframe, (self.lx, self.ly), self.lradius, (0, 255, 0), 2)
+                            cv2.circle(self.leyeframe, (self.lx, self.ly), 2, (0, 0, 255), 3)
                     self.leyeframe = np.require(self.leyeframe, np.uint8, 'C')
 
                     self.display_image(self.leyeframe, 3)
                 if self.reyeframe is not None:
-                    rIris = self.process_eye1(self.reyeframeG)
-                    # if rIris is not None:
-                    #     self.x, self.y, self.radius = int(rIris[0]), int(rIris[1]), int(rIris[2])
-                    if rIris is not None:
-                        self.x, self.y, self.radius = self.stabilize(rIris[0], rIris[1], rIris[2])
-                        cv2.circle(self.reyeframe, (self.x, self.y), self.radius, (0, 255, 0), 2)
-                        cv2.circle(self.reyeframe, (self.x, self.y), 2, (0, 0, 255), 3)
+                    if self.rightEyeCheckbox.isChecked():
+                        rIris = self.process_eye1(self.reyeframeG)
+                        if rIris is not None:
+                            self.x, self.y, self.radius = self.stabilizeRight(rIris[0], rIris[1], rIris[2])
+                            cv2.circle(self.reyeframe, (self.x, self.y), self.radius, (0, 255, 0), 2)
+                            cv2.circle(self.reyeframe, (self.x, self.y), 2, (0, 0, 255), 3)
                     self.reyeframe = np.require(self.reyeframe, np.uint8, 'C')
 
                     self.display_image(self.reyeframe, 4)
-                if self.showPupils:
+                if self.pupilsCheckbox.isChecked():
                     self.display_image(self.bImage, 1)
 
         else:  # second screen
@@ -118,12 +115,6 @@ class Window(QMainWindow):
                 self.leftEyeBox.show()
                 self.rightEyeBox.show()
                 self.pageTwo = not self.pageTwo
-
-    def checkbox(self):
-        if self.pupilsCheckbox.isChecked():
-            self.showPupils = True
-        else:
-            self.showPupils = False
 
     def load_cascades(self):
         self.faceDetect = cv2.CascadeClassifier(os.path.join("Classifiers", "haar", "haarcascade_frontalface_default.xml"))
@@ -223,15 +214,26 @@ class Window(QMainWindow):
                 # circles = np.uint16(np.around(circles))
         return iris
 
-    def stabilize(self, x, y, r):  # averages the last five X, Y and radius values with help of dequeue
-        if len(self.coordsQueue) == 5:
-            self.coordsQueue.popleft()
+    def stabilizeLeft(self, x, y, r):  # averages the last five X, Y and radius values with help of dequeue
+        if len(self.coordsQueueLeft) == 5:
+            self.coordsQueueLeft.popleft()
         else:
-            for i in range(0, 5 - len(self.coordsQueue)):
-                self.coordsQueue.append((x, y, r))
-        stableX = reduce((lambda x, y: x + y), [iris[0] for iris in self.coordsQueue]) / 5
-        stableY = reduce((lambda x, y: x + y), [iris[1] for iris in self.coordsQueue]) / 5
-        stableRadius = reduce((lambda x, y: x + y), [iris[2] for iris in self.coordsQueue]) / 5
+            for i in range(0, 5 - len(self.coordsQueueLeft)):
+                self.coordsQueueLeft.append((x, y, r))
+        stableX = reduce((lambda x, y: x + y), [iris[0] for iris in self.coordsQueueLeft]) / 5
+        stableY = reduce((lambda x, y: x + y), [iris[1] for iris in self.coordsQueueLeft]) / 5
+        stableRadius = reduce((lambda x, y: x + y), [iris[2] for iris in self.coordsQueueLeft]) / 5
+        return int(stableX), int(stableY), int(stableRadius)
+
+    def stabilizeRight(self, x, y, r):  # averages the last five X, Y and radius values with help of dequeue
+        if len(self.coordsQueueRight) == 5:
+            self.coordsQueueRight.popleft()
+        else:
+            for i in range(0, 5 - len(self.coordsQueueRight)):
+                self.coordsQueueRight.append((x, y, r))
+        stableX = reduce((lambda x, y: x + y), [iris[0] for iris in self.coordsQueueRight]) / 5
+        stableY = reduce((lambda x, y: x + y), [iris[1] for iris in self.coordsQueueRight]) / 5
+        stableRadius = reduce((lambda x, y: x + y), [iris[2] for iris in self.coordsQueueRight]) / 5
         return int(stableX), int(stableY), int(stableRadius)
 
 
