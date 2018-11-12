@@ -1,0 +1,32 @@
+QMainWindow{
+            background-color: rgb(33, 33, 33);
+            color: #ff9900;
+        }
+
+QLabel{
+    color: white;
+}
+
+QLabel#leftEyeBox, QLabel#rightEyeBox, QLabel#baseImage {
+    border: 2px solid white;
+}
+
+QCheckBox {
+    spacing: 5px;
+}
+
+QPushButton {
+    background-color: rgb(99, 144, 3);
+
+    border-width: 2px;
+    border-radius: 10px;
+}
+
+QPushButton:pressed{
+    border-style: inset;
+    background-color: rgb(97, 97, 97)
+}
+
+QAbstractButton {
+    color: rgb(175, 189, 196);
+}
