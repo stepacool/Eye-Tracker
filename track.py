@@ -8,53 +8,14 @@ from functools import reduce
 from collections import deque
 import cv2
 import numpy as np
-from multiprocessing import Process
 
 
 class Window(QMainWindow):
     def __init__(self):
         super(Window, self).__init__()
         loadUi('GUImain.ui', self)
-        self.stylesheet = """
-
-        QMainWindow {
-            background-color: rgb(33, 33, 33);
-            color: #ff9900;
-        }
-
-        QLabel{
-            color: white;
-        }
-
-        QLabel#leftEyeBox, QLabel#rightEyeBox, QLabel#baseImage {
-            border: 2px solid white;
-        }
-
-        QCheckBox {
-            spacing: 5px;
-        }
-
-        QPushButton {
-            background-color: rgb(99, 144, 3);
-
-            border-width: 2px;
-            border-radius: 10px;
-        }
-
-        QPushButton:pressed{
-            border-style: inset;
-            background-color: rgb(97, 97, 97)
-        }
-
-        QAbstractButton {
-            color: rgb(175, 189, 196);
-        }
-
-
-
-        """
-        self.setStyleSheet(self.stylesheet)
-
+        with open("style.css", "r") as css:
+            self.setStyleSheet(css.read())
         self.image = None
         self.cameraRuns = False
         self.pageTwo = False
