@@ -1,5 +1,5 @@
 import sys
-import os
+import os.path
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.uic import loadUi
@@ -21,6 +21,7 @@ class Window(QMainWindow):
         self.pageTwo = False
         self.showPupils = False
         self.load_cascades()
+        self.load_blob_detector()
         self.startButton.clicked.connect(self.start_webcam)
         self.stopButton.clicked.connect(self.stop_webcam)
         self.nextButton.clicked.connect(self.next_page)
@@ -33,7 +34,7 @@ class Window(QMainWindow):
             self.cameraRuns = not self.cameraRuns
             self.timer = QTimer(self)
             self.timer.timeout.connect(self.update_frame)
-            self.timer.start(5)
+            self.timer.start(2)
 
         else:
             pass
@@ -50,28 +51,41 @@ class Window(QMainWindow):
             self.maxRadius = self.maxRadiusSlider.value()
             self.arg1 = self.arg1Slider.value()
             self.arg2 = self.arg2Slider.value()
+            self.threshold = self.thresholdSlider.value()
             face_frame, face_frame_gray, lest, rest, faceX, faceY = self.detect_face(self.bImage, self.pImage)
             if face_frame is not None:
                 self.leyeframe, self.reyeframe, self.leyeframeG, self.reyeframeG = self.detect_eyes(face_frame, face_frame_gray, lest, rest)
                 if self.leyeframe is not None:
                     if self.leftEyeCheckbox.isChecked():
-                        lIris = self.process_eye1(self.leyeframeG)
-                        if lIris is not None:
-                            self.lx, self.ly, self.lradius = self.stabilizeLeft(lIris[0], lIris[1], lIris[2])
-                            cv2.circle(self.leyeframe, (self.lx, self.ly), self.lradius, (0, 255, 0), 2)
-                            cv2.circle(self.leyeframe, (self.lx, self.ly), 2, (0, 0, 255), 3)
+                        if self.blobToggle.value():
+                            lheight, lwidth = self.leyeframe.shape[:2]
+                            self.leyeframeG = self.leyeframeG[15:lheight, 0:lwidth]  # cut eyebrows out
+                            self.leyeframe = self.leyeframe[15:lheight, 0:lwidth]
+                            self.lkeypoints = self.process_eye(self.leyeframeG)
+                            cv2.drawKeypoints(self.leyeframe, self.lkeypoints, self.leyeframe, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                        else:
+                            lIris = self.process_eye1(self.leyeframeG)
+                            if lIris is not None:
+                                self.lx, self.ly, self.lradius = self.stabilizeLeft(lIris[0], lIris[1], lIris[2])
+                                cv2.circle(self.leyeframe, (self.lx, self.ly), self.lradius, (0, 255, 0), 2)
+                                cv2.circle(self.leyeframe, (self.lx, self.ly), 2, (0, 0, 255), 3)
                     self.leyeframe = np.require(self.leyeframe, np.uint8, 'C')
-
                     self.display_image(self.leyeframe, 3)
                 if self.reyeframe is not None:
                     if self.rightEyeCheckbox.isChecked():
-                        rIris = self.process_eye1(self.reyeframeG)
-                        if rIris is not None:
-                            self.x, self.y, self.radius = self.stabilizeRight(rIris[0], rIris[1], rIris[2])
-                            cv2.circle(self.reyeframe, (self.x, self.y), self.radius, (0, 255, 0), 2)
-                            cv2.circle(self.reyeframe, (self.x, self.y), 2, (0, 0, 255), 3)
+                        if self.blobToggle.value():
+                            rheight, rwidth = self.reyeframe.shape[:2]
+                            self.reyeframeG = self.reyeframeG[15:rheight, 0:rwidth]
+                            self.reyeframe = self.reyeframe[15:rheight, 0:rwidth]
+                            self.rkeypoints = self.process_eye(self.reyeframeG)
+                            cv2.drawKeypoints(self.reyeframe, self.rkeypoints, self.reyeframe, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                        else:
+                            rIris = self.process_eye1(self.reyeframeG)
+                            if rIris is not None:
+                                self.x, self.y, self.radius = self.stabilizeRight(rIris[0], rIris[1], rIris[2])
+                                cv2.circle(self.reyeframe, (self.x, self.y), self.radius, (0, 255, 0), 2)
+                                cv2.circle(self.reyeframe, (self.x, self.y), 2, (0, 0, 255), 3)
                     self.reyeframe = np.require(self.reyeframe, np.uint8, 'C')
-
                     self.display_image(self.reyeframe, 4)
                 if self.pupilsCheckbox.isChecked():
                     self.display_image(self.bImage, 1)
@@ -119,6 +133,12 @@ class Window(QMainWindow):
     def load_cascades(self):
         self.faceDetect = cv2.CascadeClassifier(os.path.join("Classifiers", "haar", "haarcascade_frontalface_default.xml"))
         self.eyeDetect = cv2.CascadeClassifier(os.path.join("Classifiers", "haar", 'haarcascade_eye.xml'))
+
+    def load_blob_detector(self):
+        detector_params = cv2.SimpleBlobDetector_Params()
+        detector_params.filterByArea = True
+        detector_params.maxArea = 1500
+        self.detector = cv2.SimpleBlobDetector_create(detector_params)
 
     def stop_webcam(self):
         if self.cameraRuns:
@@ -182,7 +202,16 @@ class Window(QMainWindow):
                     pass  # nostril
         return leftEye, rightEye, leftEyeG, rightEyeG
 
-    def process_eye1(self, img):  # detect circles
+    def process_eye(self, img):  # blob processing
+        _, img = cv2.threshold(img, self.threshold, 255, cv2.THRESH_BINARY)
+        img = cv2.erode(img, None, iterations=2)
+        img = cv2.dilate(img, None, iterations=4)
+        img = cv2.medianBlur(img, 5)
+        keypoints = self.detector.detect(img)
+
+        return keypoints
+
+    def process_eye1(self, img):  # circular processing
         # kernel_sharpening = np.array([[-1, -1, -1], #maybe use later as an alternative to equalizeHist()
         #                               [-1, 9, -1],
         #                               [-1, -1, -1]])
@@ -194,7 +223,6 @@ class Window(QMainWindow):
         if circles is None or circles[0, 0, 1] == 0 or circles[0, 0, 0] == 0:  # openCV bug, returns [0, 0, 0] instead of None when nothing is detected (sometimes)
             return None
         for i in circles[0, :]:  # filter the "blackest" circle out by comparing average pixel value in the circles
-
             X = int(i[0])
             Y = int(i[1])
             r = i[2]
