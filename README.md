@@ -21,6 +21,7 @@ A **very** accurate eye-tracking software.
 ## Guide
 - When **Blob** is selected, only changing **Threshold** slider affects the result
 - When **Circle** is selected, **every** slider but threshold slider affect the result
+- To launch, open track.py with Python 2.7 with all the required libraries installed(listed above)
 
 ## Developer
 - Stepan Filonov (@stepacool) stepanfilonov@gmail.com
