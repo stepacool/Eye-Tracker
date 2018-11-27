@@ -52,6 +52,8 @@ class Window(QMainWindow):
             self.arg1 = self.arg1Slider.value()
             self.arg2 = self.arg2Slider.value()
             self.threshold = self.thresholdSlider.value()
+            oldLeft = None
+            oldRight = None
             face_frame, face_frame_gray, lest, rest, faceX, faceY = self.detect_face(self.bImage, self.pImage)
             if face_frame is not None:
                 self.leyeframe, self.reyeframe, self.leyeframeG, self.reyeframeG = self.detect_eyes(face_frame, face_frame_gray, lest, rest)
@@ -62,7 +64,11 @@ class Window(QMainWindow):
                             self.leyeframeG = self.leyeframeG[15:lheight, 0:lwidth]  # cut eyebrows out
                             self.leyeframe = self.leyeframe[15:lheight, 0:lwidth]
                             self.lkeypoints = self.process_eye(self.leyeframeG)
-                            cv2.drawKeypoints(self.leyeframe, self.lkeypoints, self.leyeframe, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                            if self.lkeypoints is not None:
+                                cv2.drawKeypoints(self.leyeframe, self.lkeypoints, self.leyeframe, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                                oldLeft = self.lkeypoints
+                            else:
+                                cv2.drawKeypoints(self.leyeframe, oldLeft, self.leyeframe, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
                         else:
                             lIris = self.process_eye1(self.leyeframeG)
                             if lIris is not None:
@@ -78,7 +84,11 @@ class Window(QMainWindow):
                             self.reyeframeG = self.reyeframeG[15:rheight, 0:rwidth]
                             self.reyeframe = self.reyeframe[15:rheight, 0:rwidth]
                             self.rkeypoints = self.process_eye(self.reyeframeG)
-                            cv2.drawKeypoints(self.reyeframe, self.rkeypoints, self.reyeframe, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                            if self.rkeypoints is not None:
+                                cv2.drawKeypoints(self.reyeframe, self.rkeypoints, self.reyeframe, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                                oldRight = self.rkeypoints
+                            else:
+                                cv2.drawKeypoints(self.reyeframe, oldRight, self.reyeframe, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
                         else:
                             rIris = self.process_eye1(self.reyeframeG)
                             if rIris is not None:
