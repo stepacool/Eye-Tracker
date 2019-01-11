@@ -81,7 +81,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Next&gt;</string>
+     <string>Calibrate</string>
     </property>
    </widget>
    <widget class="QLabel" name="baseImage">

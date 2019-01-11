@@ -1,33 +1,45 @@
 import sys
 import os.path
-from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QApplication, QMainWindow
-from PyQt5.uic import loadUi
-from PyQt5.QtGui import QPixmap, QImage
 import cv2
 import numpy as np
+import process
+from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtWidgets import QApplication, QMainWindow, QDesktopWidget
+from PyQt5.uic import loadUi
+from PyQt5.QtGui import QPixmap, QImage
+import time
 
 
 class Window(QMainWindow):
+
     def __init__(self):
         super(Window, self).__init__()
         loadUi('GUImain.ui', self)
         with open("style.css", "r") as css:
             self.setStyleSheet(css.read())
-        self.image = None
-        self.cameraRuns = False
-        self.pageTwo = False
-        self.load_cascades()
-        self.load_blob_detector()
+        self.faceDetect, self.eyeDetect, self.detector, self.calibrateImage, self.pointer = process.init_cv()
         self.startButton.clicked.connect(self.start_webcam)
         self.stopButton.clicked.connect(self.stop_webcam)
         self.nextButton.clicked.connect(self.next_page)
+        self.screenWidth = QDesktopWidget().screenGeometry().width()
+        self.screenHeight = QDesktopWidget().screenGeometry().height()
         self.oldRight = None
         self.oldLeft = None
         self.oldRightArea = None
         self.oldLeftArea = None
+        self.cameraRuns = False
+        # args below are used for calibration
+        self.pageTwo = False
+        self.X = None
+        self.Y = None
+        self.xPool = []
+        self.yPool = []
+        self.calibrated = False
+        self.centerX = 0
+        self.leftX = 0
+        self.righX = 0
 
-    def start_webcam(self):
+    def start_webcam(self):  # main loop
         if not self.cameraRuns:
             self.capture = cv2.VideoCapture(cv2.CAP_DSHOW)  # VideoCapture(0) drops error# -1072875772
             if self.capture is None:
@@ -37,50 +49,89 @@ class Window(QMainWindow):
             self.timer.timeout.connect(self.update_frame)
             self.timer.start(2)
 
-        else:
-            pass
+    def update_frame(self):  # logic of the main loop
 
-    def update_frame(self):
-        _, self.bImage = self.capture.read()
-        if not self.pupilsCheckbox.isChecked():
-            self.display_image(self.bImage, 1)
-        if not self.pageTwo:  # first screen
-            self.pImage = cv2.cvtColor(self.bImage, cv2.COLOR_RGB2GRAY)
-            self.rightEyeThreshold = self.rightEyeThresholdSlider.value()
-            self.leftEyeThreshold = self.leftEyeThresholdSlider.value()
-            oldLeft = None
-            oldRight = None
-            face_frame, face_frame_gray, lest, rest, faceX, faceY = self.detect_face(self.bImage, self.pImage)
-            if face_frame is not None:
-                self.leyeframe, self.reyeframe, self.leyeframeG, self.reyeframeG = self.detect_eyes(face_frame, face_frame_gray, lest, rest)
-                if self.leyeframe is not None:  # displays left eye
-                    if self.leftEyeCheckbox.isChecked():  # draws a circle on left eye pupil
-                        lheight, lwidth = self.leyeframe.shape[:2]
-                        self.leyeframeG = self.leyeframeG[15:lheight, 0:lwidth]  # cut eyebrows out (15 px)
-                        self.leyeframe = self.leyeframe[15:lheight, 0:lwidth]
-                        self.lkeypoints = self.process_eye(self.leyeframeG, self.leftEyeThreshold)
-                        if self.lkeypoints is not None:
-                            cv2.drawKeypoints(self.leyeframe, self.lkeypoints, self.leyeframe, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-                            oldLeft = self.lkeypoints
-                        else:
-                            cv2.drawKeypoints(self.leyeframe, oldLeft, self.leyeframe, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-                    self.leyeframe = np.require(self.leyeframe, np.uint8, 'C')
-                    self.display_image(self.leyeframe, 3)
-                if self.reyeframe is not None:  # displays right eye
-                    if self.rightEyeCheckbox.isChecked():  # draws a circle on right eye pupil
-                        rheight, rwidth = self.reyeframe.shape[:2]
-                        self.reyeframeG = self.reyeframeG[15:rheight, 0:rwidth] # cur eyebrows out (15 px)
-                        self.reyeframe = self.reyeframe[15:rheight, 0:rwidth]
-                        self.rkeypoints = self.process_eye(self.reyeframeG, self.rightEyeThreshold) # get blobs
-                        self.draw_blobs(self.reyeframe, self.rkeypoints, side="right") # draw blobs
+        _, bImage = self.capture.read()
+        self.display_image(bImage, 1)
+        pImage = cv2.cvtColor(bImage, cv2.COLOR_RGB2GRAY)
+        rightEyeThreshold = self.rightEyeThresholdSlider.value()
+        leftEyeThreshold = self.leftEyeThresholdSlider.value()
+        face_frame, face_frame_gray, lest, rest, faceX, faceY = process.detect_face(bImage, pImage, self.faceDetect)
+        if face_frame is not None:
+            leyeframe, reyeframe, leyeframeG, reyeframeG = process.detect_eyes(face_frame, face_frame_gray, lest, rest, self.eyeDetect)
 
-                    self.reyeframe = np.require(self.reyeframe, np.uint8, 'C')
-                    self.display_image(self.reyeframe, 4)
-            if self.pupilsCheckbox.isChecked():  # draws keypoints on pupils on main window
-                self.display_image(self.bImage, 1)
+            if reyeframe is not None:
+                if self.rightEyeCheckbox.isChecked():
+                    reyeframe, reyeframeG = process.cut_eyebrows(reyeframe, reyeframeG)
+                    rkeypoint = process.process_eye(reyeframeG, rightEyeThreshold, self.detector, prevArea=self.oldRightArea)
+                    if rkeypoint:
+                        self.oldRight = rkeypoint
+                        self.oldRightArea = rkeypoint[0].size
+                    else:
+                        rkeypoint = self.oldRight
+                    try:
+                        self.X, self.Y = rkeypoint[0].pt[0], rkeypoint[0].pt[1]
+                    except TypeError:
+                        pass
+                    process.draw_blobs(reyeframe, rkeypoint)
+                reyeframe = np.require(reyeframe, np.uint8, 'C')
+                self.display_image(reyeframe, 4)
 
-        else:  # second screen
-            pass
+            if leyeframe is not None:
+                if self.leftEyeCheckbox.isChecked():
+                    leyeframe, leyeframeG = process.cut_eyebrows(leyeframe, leyeframeG)
+                    lkeypoint = process.process_eye(leyeframeG, leftEyeThreshold, self.detector,
+                                                    prevArea=self.oldLeftArea)
+                    if lkeypoint:
+                        self.oldLeft = lkeypoint
+                        self.oldRightArea = lkeypoint[0].size
+                    else:
+                        lkeypoint = self.oldLeft
+                    process.draw_blobs(leyeframe, lkeypoint)
+                leyeframe = np.require(leyeframe, np.uint8, 'C')
+                self.display_image(leyeframe, 3)
+
+        if self.pupilsCheckbox.isChecked():  # draws keypoints on pupils on main window
+            self.display_image(bImage, 1)
+
+        # calibration and gaze estimation part below
+        # logic below can be put in DRY way, but I can't come up with a way for now, want to make it work at least
+        # Code below works
+        # if self.pageTwo and not self.calibrated:
+        #     if len(self.xPool) < 50:
+        #         self.xPool.append(self.X)
+        #         self.yPool.append(self.Y)
+        #     else:
+        #         if self.centerX == 0:
+        #             self.centerX = max(self.xPool)
+        #             self.centerY = max(self.yPool)
+        #             cv2.moveWindow('Look_here', 0, 0)
+        #             self.xPool = []
+        #             self.yPool = []
+        #         elif self.leftX == 0:
+        #             self.leftX = max(self.xPool)
+        #             self.topY = max(self.yPool)
+        #             cv2.moveWindow('Look_here', self.screenWidth - 260, self.screenHeight - 40)
+        #             self.xPool = []
+        #             self.yPool = []
+        #         else:
+        #             self.rightX = max(self.xPool)
+        #             self.bottomY = max(self.yPool)
+        #             cv2.destroyWindow('Look_here')
+        #             self.calibrated = True
+        #             self.xRange = abs(self.rightX - self.leftX) # range of your pupils' movement X
+        #             self.yRange = abs(self.bottomY - self.topY) # Y
+        #             print(self.xRange, self.yRange)
+        #             cv2.imshow('Pointer', self.pointer)
+
+        # # POINTER PART
+        # elif self.pageTwo and self.calibrated:
+        #     ratioX = (self.rightX - self.X) / self.xRange
+        #     ratioY = (self.bottomY - self.Y) / self.yRange
+        #     print(ratioX, ratioY)
+        #     screenpositionX = int((self.screenWidth-150) * ratioX)
+        #     screenpositionY = int((self.screenHeight-150) * ratioY)
+        #     cv2.moveWindow('Pointer', screenpositionX, screenpositionY)
 
     def display_image(self, img, window):
         # Makes OpenCV images displayable on PyQT, displays them
@@ -105,131 +156,35 @@ class Window(QMainWindow):
 
     def next_page(self):
         if self.cameraRuns:
-            if not self.pageTwo:  # first to second screen
-                self.nextButton.clicked.disconnect(self.next_page)
-                self.backButton.setEnabled(True)
-                self.backButton.clicked.connect(self.next_page)
-                self.leftEyeBox.hide()
-                self.rightEyeBox.hide()
-                self.pageTwo = not self.pageTwo
-            else:  # second to first screen
-                self.nextButton.clicked.connect(self.next_page)
-                self.backButton.setEnabled(False)
-                self.leftEyeBox.show()
-                self.rightEyeBox.show()
-                self.pageTwo = not self.pageTwo
-
-    def load_cascades(self):
-        self.faceDetect = cv2.CascadeClassifier(os.path.join("Classifiers", "haar", "haarcascade_frontalface_default.xml"))
-        self.eyeDetect = cv2.CascadeClassifier(os.path.join("Classifiers", "haar", 'haarcascade_eye.xml'))
-
-    def load_blob_detector(self):
-        detector_params = cv2.SimpleBlobDetector_Params()
-        detector_params.filterByArea = True
-        detector_params.maxArea = 1500
-        self.detector = cv2.SimpleBlobDetector_create(detector_params)
+            self.nextButton.clicked.disconnect(self.next_page)
+            self.backButton.setEnabled(True)
+            self.backButton.clicked.connect(self.next_page)
+            self.showFullScreen()
+            self.rightEyeThreshold = self.rightEyeThresholdSlider.value()
+            self.pageTwo = not self.pageTwo
+            cv2.imshow('Look_here', self.calibrateImage)
+            cv2.moveWindow('Look_here', self.screenWidth / 2 - 130, self.screenHeight / 2 - 20)
 
     def stop_webcam(self):
         if self.cameraRuns:
             self.timer.stop()
             self.cameraRuns = not self.cameraRuns
 
-    def detect_face(self, img, img_gray):
+    def calibrate(self):
+        pass
+        # cv2.imshow('Look_here', self.calibrateImage)
+        # cv2.moveWindow('Look_here', self.screenWidth / 2 - 130, self.screenHeight / 2 - 20)
+        # centerX, centerY = self.matchPixToXY()
+        # cv2.moveWindow('Look_here', 0, 0)
+        # leftX, topY = self.matchPixToXY()
+        # cv2.moveWindow('Look_here', self.screenWidth-260, self.screenHeight-40)
+        # rightX, bottomY = self.matchPixToXY()
+
+    def matchPixToXY(self):
         """
-        Detects all faces, if multiple found, works with the biggest. Returns the following parameters:
-        1. The face frame
-        2. A gray version of the face frame
-        2. Estimated left eye coordinates range
-        3. Estimated right eye coordinates range
-        5. X of the face frame
-        6. Y of the face frame
+        Matches X, Y of blob to where you look(to where "Look_here" window is)
+        :return:
         """
-        coords = self.faceDetect.detectMultiScale(img, 1.3, 5)
-
-        if len(coords) > 1:
-            biggest = (0, 0, 0, 0)
-            for i in coords:
-                if i[3] > biggest[3]:
-                    biggest = i
-            biggest = np.array([i], np.int32)
-        elif len(coords) == 1:
-            biggest = coords
-        else:
-            return None, None, None, None, None, None
-        for (x, y, w, h) in biggest:
-            frame = img[y:y + h, x:x + w]
-            frame_gray = img_gray[y:y + h, x:x + w]
-            lest = (int(w * 0.1), int(w * 0.45))
-            rest = (int(w * 0.55), int(w * 0.9))
-            X = x
-            Y = y
-
-        return frame, frame_gray, lest, rest, X, Y
-
-    def detect_eyes(self, img, img_gray, lest, rest):
-        """
-        lest and rest are from detect_face method. Returns colored and grayscale eye frames.
-        """
-        leftEye = None
-        rightEye = None
-        leftEyeG = None
-        rightEyeG = None
-        coords = self.eyeDetect.detectMultiScale(img_gray, 1.3, 5)
-
-        if coords is None or len(coords) == 0:
-            pass
-        else:
-            for(x, y, w, h) in coords:
-                eyecenter = int(float(x) + (float(w) / float(2)))
-                if lest[0] < eyecenter and eyecenter < lest[1]:
-                    leftEye = img[y:y + h, x:x + w]
-                    leftEyeG = img_gray[y:y + h, x:x + w]
-                elif rest[0] < eyecenter and eyecenter < rest[1]:
-                    rightEye = img[y:y + h, x:x + w]
-                    rightEyeG = img_gray[y:y + h, x:x + w]
-                else:
-                    pass  # nostril
-        return leftEye, rightEye, leftEyeG, rightEyeG
-
-    def process_eye(self, img, threshold):  # blob processing
-        _, img = cv2.threshold(img, threshold, 255, cv2.THRESH_BINARY)
-        img = cv2.erode(img, None, iterations=2)
-        img = cv2.dilate(img, None, iterations=4)
-        img = cv2.medianBlur(img, 5)
-        keypoints = self.detector.detect(img)
-
-        return keypoints
-
-    def draw_blobs(self, img, keypoints, side="right"):
-        """Draws blobs, uses a kwarg to determine which eye to draw (left or right)"""
-        print(keypoints, self.oldRight, self.oldLeft)
-        if len(keypoints) == 1:  # when one blob is found, we draw it and remember its position, area
-            cv2.drawKeypoints(img, keypoints, img, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-            if side == "right":
-                self.oldRight = keypoints
-                self.oldRightArea = keypoints[0].size
-            else:
-                self.oldLeft = keypoints
-                self.oldLeftArea = keypoints
-        elif len(keypoints) == 0 and self.oldRight is not None and side == "right":  # when no blobs are found, we draw the last remembered blob(right)
-            cv2.drawKeypoints(img, self.oldRight, img, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-
-        elif len(keypoints) == 0 and self.oldRight is not None and side == "left": # when no blobs are found, we draw the last remembered blob(left)
-            cv2.drawKeypoints(img, self.oldLeft, img, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-
-        elif len(keypoints) > 1:  # when multiple blobs are found the one whose area is the closest to the last detected blob's area is drawn
-            tmp = 1000
-            if side == "right":
-                area = self.oldRightArea
-            else:
-                area = self.oldLeftArea
-            for keypoint in keypoints: # filter out odd blobs
-                if abs(keypoint.size - area) < tmp:
-                    keypoint_to_draw = np.array(keypoint)
-                    tmp = abs(keypoint.size - area)
-            cv2.drawKeypoints(img, keypoint_to_draw, img, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-
-    def process_pupil(self, img):  # pupil processing for conreal reflection
         pass
 
 
