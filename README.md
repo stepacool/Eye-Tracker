@@ -15,7 +15,7 @@ A **very** accurate eye-tracking software.
 
 ## Requirements
 - Python 3(will work with 2.7 if you install custom PyQT5 for it)
-- PyQT 5(to install it for 2.7 use pip install python-qt5 WARNING: Windows-only)
+- PyQT 5(to install it for 2.7 use **pip install python-qt5** WARNING: Windows-only)
 - OpenCV 3.4 +
 - NumPy 1.15.2 +
 
