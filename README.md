@@ -22,6 +22,7 @@ A **very** accurate eye-tracking software.
 ## Guide
 - To run: python main.py
 - adjust thresholds for different lighting conditions(low for dark, high for bright)
+- Detailed development guide: https://medium.com/@stepanfilonov/tracking-your-eyes-with-python-3952e66194a6
 
 ## Developer
 - Stepan Filonov (@stepacool) stepanfilonov@gmail.com
