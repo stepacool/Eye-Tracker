@@ -2,6 +2,10 @@ from cv2 import cv2
 
 
 class FrameSource:
+    """
+    Allows to capture images from camera frame-by-frame
+    """
+
     def __init__(self, cam_id=None):
         self.camera_is_running = False
         self.cam_id = cam_id
@@ -42,4 +46,3 @@ class FrameSource:
             raise SystemError("Failed to capture a frame")
 
         return frame
-

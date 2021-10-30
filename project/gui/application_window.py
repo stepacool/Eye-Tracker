@@ -1,10 +1,9 @@
 import numpy
-from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QMainWindow, QPushButton, QLabel, QSlider
-from PyQt6.uic import loadUi
-from PyQt6.QtGui import QPixmap, QImage
-
 from capturers import Capture
+from PyQt6.QtCore import QTimer
+from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtWidgets import QLabel, QMainWindow, QPushButton, QSlider
+from PyQt6.uic import loadUi
 from settings import settings
 from video_source import FrameSource
 

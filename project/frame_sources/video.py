@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from cv2 import cv2
-
 from settings import settings
 
 
@@ -9,6 +8,7 @@ class FrameSource:
     """
     Go over video frame-by-frame. Location is specified with ENV var STATIC_FILE_PATH
     """
+
     def __init__(self, location: Path = settings.STATIC_FILE_PATH):
         self.location = location
         self.capture = None

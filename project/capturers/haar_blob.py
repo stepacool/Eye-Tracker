@@ -4,9 +4,7 @@ from typing import Optional
 import numpy
 from cv2 import cv2
 from cv2.data import haarcascades
-
 from settings import settings
-
 
 logger = logging.getLogger(__name__)
 

@@ -1,10 +1,14 @@
 from pathlib import Path
 
-from settings import settings
 from cv2 import cv2
+from settings import settings
 
 
 class FrameSource:
+    """
+    Allows to go over files in a folder file-by-file, frame-by-frame as if they are a video
+    """
+
     def __init__(self, location: Path = settings.DEBUG_DUMP_LOCATION):
         self.location = location
         self.path_list = None
