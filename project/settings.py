@@ -20,6 +20,7 @@ class Settings:
     DEBUG_DUMP_LOCATION = e("DEBUG_DUMP_LOCATION", BASE_DIR / "capturers" / "dump")
 
     STATIC_FILE_PATH = e("STATIC_FILE_PATH", BASE_DIR / "capturers" / "dump" / "man.png")
+    STATIC_VIDEO_PATH = e("STATIC_VIDEO_PATH")
 
 
 settings = Settings()

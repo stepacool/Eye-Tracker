@@ -5,16 +5,18 @@ from PyQt6.QtWidgets import QApplication
 
 from capturers.haar_blob import HaarCascadeBlobCapture
 from gui.application_window import Window
-from video_source import (
-    OpenCVCameraVideoSource,
-    FolderOpenCVImageSource,
-    StaticFileOpenCVImageFile,
+from frame_sources import (
+    CameraFrameSource,
+    FolderFrameSource,
+    FileFrameSource,
+    VideoFrameSource,
 )
 
 FRAME_SOURCES = {
-    "camera": OpenCVCameraVideoSource,
-    "folder": FolderOpenCVImageSource,
-    "file": StaticFileOpenCVImageFile,
+    "camera": CameraFrameSource,
+    "folder": FolderFrameSource,
+    "file": FileFrameSource,
+    "video": VideoFrameSource,
 }
 
 
