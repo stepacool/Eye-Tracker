@@ -4,8 +4,9 @@ from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import QLabel, QMainWindow, QPushButton, QSlider
 from PyQt6.uic import loadUi
+
+from frame_sources import FrameSource
 from settings import settings
-from video_source import FrameSource
 
 
 class Window(QMainWindow):
